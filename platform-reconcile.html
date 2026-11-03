@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>กระทบรายงานตามแพลตฟอร์ม · Delish Foods</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#1d2a22; --ink2:#4a5a50; --muted:#7b8a80;
+  --paper:#ffffff; --bg:#f3f6f3; --line:#dfe7e1; --line2:#eef3ef;
+  --green:#1B5E20; --green-l:#e7f2e8; --green-m:#c8e6c9;
+  --amber:#a15c00; --amber-l:#fff4e0; --red:#b3261e; --red-l:#fdecea; --blue:#1f4e8c; --blue-l:#e8f0fb;
+  --line-green:#06c755;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --ink:#e6eee8; --ink2:#b9c6bd; --muted:#8a998f; --paper:#17201a; --bg:#0f1611; --line:#2b3a30; --line2:#202b24;
+    --green:#7fcf86; --green-l:#1d3322; --green-m:#2c4a31; --amber:#f0b45a; --amber-l:#3a2a12; --red:#f28b82; --red-l:#3b1d1b; --blue:#9cc0f5; --blue-l:#1b2a40; color-scheme:dark; }
+}
+*{box-sizing:border-box}
+body{margin:0; font-family:'IBM Plex Sans Thai','Sarabun',system-ui,sans-serif; background:var(--bg); color:var(--ink); font-size:14px; line-height:1.5;}
+.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap;}
+header{background:var(--green); color:#fff; padding:18px 28px 16px;}
+@media (prefers-color-scheme:dark){ header{background:#123f16;} }
+header .brand{font-size:12.5px; opacity:.8;}
+header h1{margin:2px 0 0; font-size:22px; font-weight:700; letter-spacing:.2px;}
+main{max-width:1500px; margin:0 auto; padding:22px 28px 60px;}
+.platforms{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;}
+.pf{border:1px solid var(--line); background:var(--paper); color:var(--ink2); border-radius:8px; padding:8px 16px; font:inherit; font-weight:600; cursor:pointer;}
+.pf.active{border-color:var(--line-green); box-shadow:inset 0 -3px 0 var(--line-green); color:var(--ink);}
+.pf[disabled]{opacity:.5; cursor:not-allowed;}
+.pf small{font-weight:400; color:var(--muted); margin-left:6px;}
+.inputs{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+@media (max-width:900px){ .inputs{grid-template-columns:1fr;} main{padding:16px;} }
+.panel{background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:16px 18px;}
+.panel h2{margin:0 0 4px; font-size:15.5px;}
+.panel p.sub{margin:0 0 12px; color:var(--muted); font-size:12.5px;}
+textarea{width:100%; min-height:110px; border:1px solid var(--line); border-radius:8px; padding:10px; font:12.5px/1.45 ui-monospace,Consolas,monospace; background:var(--bg); color:var(--ink); resize:vertical;}
+.row{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px;}
+.btn{font:inherit; font-weight:600; border-radius:7px; padding:8px 14px; cursor:pointer; border:1px solid var(--line); background:var(--paper); color:var(--ink);}
+.btn:hover{border-color:var(--green);}
+.btn.primary{background:var(--green); border-color:var(--green); color:#fff;}
+@media (prefers-color-scheme:dark){ .btn.primary{color:#0f1611;} }
+.btn:focus-visible,.pf:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--line-green); outline-offset:2px;}
+input[type=text],input[type=number],select{font:inherit; border:1px solid var(--line); border-radius:7px; padding:7px 10px; background:var(--paper); color:var(--ink);}
+.status-line{font-size:12.5px; margin-top:8px; color:var(--muted);}
+.status-line.ok{color:var(--green);} .status-line.err{color:var(--red);}
+.settings{display:flex; gap:18px; flex-wrap:wrap; align-items:center; margin:16px 0 0; padding:12px 16px; background:var(--paper); border:1px solid var(--line); border-radius:10px; font-size:13px;}
+.settings label{display:flex; gap:6px; align-items:center;}
+.settings input[type=number]{width:72px;}
+.run{margin:16px 0 22px; display:flex; gap:10px; align-items:center;}
+
+/* summary strip */
+.summary{display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); border:1px solid var(--line); border-radius:10px; background:var(--paper); overflow:hidden; margin-bottom:16px;}
+@media (max-width:1100px){ .summary{grid-template-columns:repeat(3,1fr);} }
+.summary div{padding:12px 16px; border-right:1px solid var(--line2);}
+.summary div:last-child{border-right:0;}
+.summary .k{font-size:12px; color:var(--muted);}
+.summary .v{font-size:19px; font-weight:700; font-variant-numeric:tabular-nums;}
+.summary .v.good{color:var(--green);} .summary .v.warn{color:var(--amber);} .summary .v.bad{color:var(--red);}
+
+.filters{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;}
+.chip{font:inherit; font-size:12.5px; border:1px solid var(--line); background:var(--paper); color:var(--ink2); border-radius:20px; padding:4px 12px; cursor:pointer;}
+.chip.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+
+.tablewrap{overflow-x:auto; background:var(--paper); border:1px solid var(--line); border-radius:10px;}
+table{border-collapse:collapse; width:100%; font-size:13px;}
+th{position:sticky; top:0; background:var(--green-l); color:var(--ink); text-align:left; font-weight:600; font-size:12px; padding:9px 10px; border-bottom:1px solid var(--line); white-space:nowrap;}
+th.num{text-align:right;}
+th.grp-ours{background:var(--blue-l);}
+td{padding:8px 10px; border-bottom:1px solid var(--line2); vertical-align:top;}
+tfoot td{font-weight:700; background:var(--green-l); border-top:2px solid var(--green);}
+tr.st-none td{background:var(--red-l);}
+tr.st-dup td, tr.st-amt td, tr.st-date td{background:var(--amber-l);}
+.order{font-family:ui-monospace,Consolas,monospace; font-size:12.5px; white-space:nowrap; color:var(--muted);}
+.order b{color:var(--ink); background:var(--green-m); padding:0 3px; border-radius:3px;}
+.iv{font-weight:700; white-space:nowrap; color:var(--blue);}
+.ivsub{font-size:11.5px; color:var(--muted); white-space:nowrap;}
+.badge{display:inline-block; font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:20px; white-space:nowrap;}
+.b-ok{background:var(--green-l); color:var(--green);}
+.b-warn{background:var(--amber-l); color:var(--amber); border:1px solid currentColor;}
+.b-bad{background:var(--red-l); color:var(--red); border:1px solid currentColor;}
+.diff-bad{color:var(--red); font-weight:700;}
+.note{font-size:11.5px; color:var(--muted); margin-top:2px;}
+.neg{color:var(--red);}
+h3.sec{font-size:15px; margin:26px 0 8px;}
+.empty{padding:28px; text-align:center; color:var(--muted);}
+.hidden{display:none !important;}
+details.help{margin-top:10px; font-size:12.5px; color:var(--ink2);}
+details.help summary{cursor:pointer; color:var(--green); font-weight:600;}
+@media (prefers-reduced-motion:reduce){ *{transition:none !important; animation:none !important;} }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Delish Foods · ฝ่ายการเงิน</div>
+  <h1>กระทบรายงานตามแพลตฟอร์ม</h1>
+</header>
+
+<main>
+  <div class="platforms" id="platforms"></div>
+
+  <section class="inputs">
+    <div class="panel">
+      <h2 id="pfTitle">1. รายงานจากแพลตฟอร์ม</h2>
+      <p class="sub" id="pfSub"></p>
+      <div class="row" style="margin-top:0;">
+        <input type="file" id="pfFile" accept=".xlsx,.xls,.csv">
+      </div>
+      <textarea id="pfPaste" placeholder="หรือคัดลอกทั้งตาราง (รวมหัวคอลัมน์) จาก Excel มาวางที่นี่"></textarea>
+      <div class="status-line" id="pfStatus"></div>
+    </div>
+
+    <div class="panel">
+      <h2>2. ข้อมูลยอดขายที่พนักงานส่ง (Google Sheet)</h2>
+      <p class="sub">ต้องมีคอลัมน์ IV No., BP Reference No., Document Total และ Posting Date</p>
+      <div class="row" style="margin-top:0;">
+        <button class="btn" id="btnFetch">ดึงจาก Google Sheet</button>
+        <input type="file" id="ourFile" accept=".xlsx,.xls,.csv">
+      </div>
+      <textarea id="ourPaste" placeholder="หรือคัดลอกจากแท็บ Sales Detail ใน Google Sheet (รวมหัวคอลัมน์) มาวางที่นี่&#10;รองรับไฟล์ export จาก SAP 11 คอลัมน์ด้วย"></textarea>
+      <div class="status-line" id="ourStatus"></div>
+      <details class="help"><summary>ตั้งค่า URL ของ Google Sheet Web App</summary>
+        <div class="row"><input type="text" id="apiUrl" style="flex:1; min-width:260px;" placeholder="https://script.google.com/macros/s/.../exec"><button class="btn" id="btnSaveUrl">บันทึก</button></div>
+        <div class="note">ใช้ URL ของ Apps Script ใน Sheet การเงิน (Finance.gs) ถ้าดึงไม่ได้ ให้ใช้วิธีวางข้อมูลแทน</div>
+      </details>
+    </div>
+  </section>
+
+  <div class="settings">
+    <label><input type="checkbox" id="optChannel" checked> ใช้เฉพาะ IV ของช่องทาง <b id="optChannelName"></b></label>
+    <label>ยอมให้ยอดต่างได้ ±<input type="number" id="optTol" value="1" min="0" step="0.5"> บาท</label>
+    <label>วันที่ IV ห่างจากวันสั่งซื้อได้ไม่เกิน <input type="number" id="optDays" value="7" min="0" step="1"> วัน</label>
+    <label><input type="checkbox" id="optCompleted" checked> กระทบเฉพาะออเดอร์สถานะ Completed</label>
+  </div>
+
+  <div class="run">
+    <button class="btn primary" id="btnRun">กระทบยอด</button>
+    <button class="btn hidden" id="btnSave">บันทึกผลลง Google Sheet</button>
+    <button class="btn hidden" id="btnExport">ดาวน์โหลดผลเป็น Excel</button>
+    <span class="status-line" id="runStatus" style="margin:0;"></span>
+  </div>
+
+  <section id="result" class="hidden">
+    <div class="summary" id="summary"></div>
+    <div class="filters" id="filters"></div>
+    <div class="tablewrap"><table id="tblMain"></table></div>
+
+    <h3 class="sec">สรุปตามรอบเงินเข้า (Settlement)</h3>
+    <div class="tablewrap"><table id="tblSettle"></table></div>
+
+    <h3 class="sec">IV ฝั่งเราที่ไม่พบในรายงานนี้</h3>
+    <p class="sub" style="color:var(--muted); font-size:12.5px; margin:-4px 0 8px;">เฉพาะ IV ที่วันที่อยู่ในช่วงเดียวกับออเดอร์ในรายงาน อาจยังไม่ถึงรอบโอน หรือ BP Reference No. ผิด</p>
+    <div class="tablewrap"><table id="tblUnmatched"></table></div>
+  </section>
+</main>
+
+<script>
+/* ===================== Platform configs ===================== */
+// เพิ่ม Shopee / Lazada / TikTok ภายหลัง: ใส่ชื่อหัวคอลัมน์ของรายงานแต่ละเจ้าที่นี่
+const PLATFORMS = {
+  lineshopping: {
+    name:'LINE Shopping', ready:true,
+    channelKeys:['lineshopping','line shopping','lineshop'],
+    sub:'ไฟล์ "รายงานแบ่งตามรอบเงินเข้า" ที่ LINE Shopping ส่งมา (.xlsx) จับคู่ด้วยเลข 4 ตัวท้ายของหมายเลขคำสั่งซื้อ',
+    headerKey:'หมายเลขคำสั่งซื้อ',
+    cols:{ settlement:'Settlement ID', payDate:'วันที่ได้รับเงิน', order:'หมายเลขคำสั่งซื้อ', status:'สถานะคำสั่งซื้อ', ship:'สถานะการจัดส่ง',
+      gross:'ราคาขายสินค้ารวม', shipping:'ค่าจัดส่ง', coupon:'ส่วนลดคูปอง', customerPaid:'ยอดชำระเงินของลูกค้า(หลังหักส่วนลดถ้ามี)',
+      platformPaid:'ยอดชำระเงินของแพลตฟอร์ม', wht:'ภาษีหัก ณ ที่จ่าย (ถ้ามี)', payFee:'ค่าธรรมเนียมการชำระเงิน', serviceFee:'ค่าธรรมเนียมการใช้บริการ',
+      vat:'ภาษีมูลค่าเพิ่ม', received:'ยอดเงินที่ได้รับ' },
+    // ยอด IV ใน SAP = ราคาเต็ม − ส่วนลด = ยอดที่ลูกค้าจ่าย
+    compareField:'customerPaid',
+    completed:v=> /completed/i.test(v),
+    orderDate:o=>{ const m=/^(\d{4})(\d{2})(\d{2})/.exec(o); return m? new Date(+m[1],+m[2]-1,+m[3]) : null; }
+  },
+  shopee:{ name:'Shopee', ready:false }, lazada:{ name:'Lazada', ready:false }, tiktok:{ name:'TikTok Shop', ready:false }
+};
+let pfId='lineshopping';
+const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbwiQKYCt8AU2YerX6728EOW3IVk_nQdMZpoZuHMALbDQjzQDWIJR1GG6OIXRaOf5qPg/exec';
+
+/* ===================== State ===================== */
+const st = { pfRows:[], ourRows:[], results:[], unmatched:[], filter:'all', manual:{} };
+const $ = id=>document.getElementById(id);
+const esc = s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v=>{ if(v===''||v==null) return 0; const n=parseFloat(String(v).replace(/,/g,'')); return isNaN(n)?0:n; };
+const fmt = n=>(Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtD = d=> d? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` : '-';
+const last4 = v=>{ const d=String(v??'').replace(/\D/g,''); return d? d.slice(-4).padStart(4,'0') : ''; };
+const dayDiff=(a,b)=> (a&&b)? Math.round(Math.abs(a-b)/86400000) : null;
+
+/* ===================== Parsing ===================== */
+function readTable(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>{ try{ const wb=XLSX.read(e.target.result,{type:'array'}); const ws=wb.Sheets[wb.SheetNames[0]];
+      res(XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''})); }catch(err){ rej(err); } };
+    r.onerror=()=>rej(new Error('อ่านไฟล์ไม่ได้'));
+    r.readAsArrayBuffer(file);
+  });
+}
+const pasteToTable = t=> t.replace(/\r/g,'').split('\n').filter(l=>l.trim()).map(l=>l.split('\t'));
+function findHeader(table, key){
+  for(let i=0;i<Math.min(table.length,10);i++){ const idx=table[i].findIndex(c=>String(c).trim()===key); if(idx!==-1) return i; }
+  return -1;
+}
+
+function parsePlatform(table){
+  const cfg=PLATFORMS[pfId];
+  const h=findHeader(table,cfg.headerKey);
+  if(h===-1) throw new Error(`ไม่พบหัวคอลัมน์ "${cfg.headerKey}" กรุณาวางทั้งตารางรวมหัวคอลัมน์`);
+  const head=table[h].map(c=>String(c).trim());
+  const ix={}; Object.entries(cfg.cols).forEach(([k,name])=>ix[k]=head.indexOf(name));
+  const missing=Object.entries(ix).filter(([k,i])=>i===-1 && ['order','customerPaid','received'].includes(k)).map(([k])=>cfg.cols[k]);
+  if(missing.length) throw new Error('ไม่พบคอลัมน์: '+missing.join(', '));
+  const g=(r,k)=> ix[k]===-1? '' : r[ix[k]];
+  return table.slice(h+1).filter(r=>String(g(r,'order')).trim()).map(r=>{
+    const order=String(g(r,'order')).trim().replace(/\.0+$/,'');
+    return { settlement:String(g(r,'settlement')).trim(), payDate:String(g(r,'payDate')).trim(), order, key:last4(order),
+      orderDate:cfg.orderDate(order), status:String(g(r,'status')).trim(), ship:String(g(r,'ship')).trim(),
+      gross:num(g(r,'gross')), shipping:num(g(r,'shipping')), coupon:num(g(r,'coupon')), customerPaid:num(g(r,'customerPaid')),
+      platformPaid:num(g(r,'platformPaid')), wht:num(g(r,'wht')), payFee:num(g(r,'payFee')), serviceFee:num(g(r,'serviceFee')),
+      vat:num(g(r,'vat')), received:num(g(r,'received')) };
+  });
+}
+
+/* SAP posting dates come as D/M/YY or M/D/YY — keep both readings, pick the one nearest the order date later */
+function parseDates(v){
+  if(v instanceof Date) return [v];
+  const s=String(v||'').trim(); if(!s) return [];
+  let m=/^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s); if(m) return [new Date(+m[1],+m[2]-1,+m[3])];
+  m=/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/.exec(s); if(!m) return [];
+  let y=+m[3]; if(y<100) y+=2000; if(y>2500) y-=543;
+  const out=[]; const a=+m[1], b=+m[2];
+  if(b<=12) out.push(new Date(y,b-1,a));
+  if(a<=12 && a!==b) out.push(new Date(y,a-1,b));
+  return out;
+}
+function parseOurs(table){
+  let h=findHeader(table,'BP Reference No.');
+  let rows;
+  if(h!==-1){
+    const head=table[h].map(c=>String(c).trim());
+    const f=(...names)=>{ for(const n of names){ const i=head.indexOf(n); if(i!==-1) return i; } return -1; };
+    const ix={ iv:f('IV No.'), so:f('SO No.'), bp:f('BP Reference No.'), total:f('Document Total'), post:f('Posting Date (SAP)','Posting Date'),
+      sale:f('Sale Date'), channel:f('Channel','Platform'), cust:f('Customer/Vendor Name'), branch:f('Branch'), canceled:f('Canceled'), type:f('Type') };
+    if(ix.iv===-1||ix.total===-1) throw new Error('ไม่พบคอลัมน์ IV No. หรือ Document Total');
+    const g=(r,k)=> ix[k]===-1? '' : r[ix[k]];
+    rows=table.slice(h+1).map(r=>({ iv:String(g(r,'iv')).trim(), so:String(g(r,'so')).trim(), bp:String(g(r,'bp')).trim(), total:num(g(r,'total')),
+      postRaw:String(g(r,'post')||g(r,'sale')).trim(), channel:String(g(r,'channel')).trim(), cust:String(g(r,'cust')).trim(),
+      branch:String(g(r,'branch')).trim(), canceled:/^(y|yes|true)$/i.test(String(g(r,'canceled')).trim()) || /cancel/i.test(String(g(r,'type'))) }));
+  }else{
+    // raw SAP export: Internal, IV, SO, Posting Date, Cust Code, Cust Name, Doc Total, Status, Canceled, Remarks, BP Ref
+    const first=table[0]||[];
+    const isHeaderRow=/internal/i.test(first[0]||'');
+    rows=table.slice(isHeaderRow?1:0).filter(r=>r.length>=7).map(r=>({ iv:String(r[1]||'').trim(), so:String(r[2]||'').trim(), bp:String(r[10]||'').trim(),
+      total:num(r[6]), postRaw:String(r[3]||'').trim(), channel:'', cust:String(r[5]||'').trim(), branch:'', canceled:/^(y|yes|true)$/i.test(String(r[8]||'').trim()) }));
+  }
+  return rows.filter(r=>r.iv).map((r,i)=>({...r, uid:'o'+i, key:last4(r.bp), dates:parseDates(r.postRaw)}));
+}
+
+/* ===================== Matching ===================== */
+function channelOk(o){
+  if(!$('optChannel').checked) return true;
+  const t=(o.channel+' '+o.cust).toLowerCase().replace(/\s+/g,'');
+  if(!o.channel && !o.cust) return true;
+  return PLATFORMS[pfId].channelKeys.some(k=>t.includes(k.replace(/\s+/g,'')));
+}
+function ivDate(o, ref){ // closest reading to the order date
+  if(!o.dates.length) return null;
+  if(!ref) return o.dates[0];
+  return o.dates.slice().sort((a,b)=>Math.abs(a-ref)-Math.abs(b-ref))[0];
+}
+
+function reconcile(){
+  const cfg=PLATFORMS[pfId];
+  const tol=num($('optTol').value), win=num($('optDays').value);
+  const onlyDone=$('optCompleted').checked;
+  const ours=st.ourRows.filter(o=>!o.canceled && channelOk(o));
+  const canceled=st.ourRows.filter(o=>o.canceled);
+  const used=new Set();
+  const amt=p=>p[cfg.compareField];
+
+  const res=st.pfRows.map((p,i)=>{
+    const cands=ours.filter(o=>o.key && o.key===p.key).map(o=>{
+      const d=ivDate(o,p.orderDate); const dd=dayDiff(d,p.orderDate);
+      return { o, d, dd, inWin: dd===null || dd<=win, amtOk: Math.abs(o.total-amt(p))<=tol };
+    });
+    return { idx:i, p, cands, ivs:[], status:'none', note:'', skip: onlyDone && !cfg.completed(p.status),
+      cancelNote: canceled.filter(o=>o.key===p.key).map(o=>o.iv) };
+  });
+
+  const take=(r,list,status,note)=>{ r.ivs=list; list.forEach(c=>used.add(c.o.uid)); r.status=status; r.note=note||''; };
+  const free=r=>r.cands.filter(c=>!used.has(c.o.uid));
+
+  // manual picks first
+  res.forEach(r=>{ const pick=st.manual[r.p.order]; if(pick && !r.skip){ const c=r.cands.find(c=>c.o.uid===pick); if(c){ take(r,[c], c.amtOk?'manual':'amt', 'เลือกเอง'); } } });
+  // pass 1: amount + date window, unique
+  for(let pass=0; pass<3; pass++){
+    res.forEach(r=>{ if(r.skip||r.ivs.length) return; const ok=free(r).filter(c=>c.amtOk && c.inWin); if(ok.length===1) take(r,ok,'ok'); });
+  }
+  // pass 2: one order split into several IVs (same BP Ref, sum equals)
+  res.forEach(r=>{ if(r.skip||r.ivs.length) return; const f=free(r).filter(c=>c.inWin);
+    if(f.length>1){ const sum=f.reduce((a,c)=>a+c.o.total,0); if(Math.abs(sum-amt(r.p))<=tol) take(r,f,'ok','รวม '+f.length+' IV'); } });
+  // pass 3: classify what's left
+  res.forEach(r=>{
+    if(r.skip){ r.status='skip'; return; }
+    if(r.ivs.length) return;
+    const f=free(r);
+    const exact=f.filter(c=>c.amtOk && c.inWin), inWin=f.filter(c=>c.inWin), amtOnly=f.filter(c=>c.amtOk);
+    if(exact.length>1){ r.status='dup'; r.note=`เลข ${r.p.key} ตรง ${exact.length} IV ยอดเท่ากัน`; r.choices=exact; }
+    else if(inWin.length===1){ take(r,inWin,'amt'); }
+    else if(inWin.length>1){ r.status='dup'; r.note=`เลข ${r.p.key} ตรง ${inWin.length} IV แต่ยอดไม่ตรงกับตัวใดเลย`; r.choices=inWin; }
+    else if(amtOnly.length===1){ take(r,amtOnly,'date', `วันที่ IV ห่างจากวันสั่ง ${amtOnly[0].dd} วัน`); }
+    else if(f.length){ r.status='dup'; r.note=`พบเลข ${r.p.key} แต่นอกช่วงวันที่`; r.choices=f; }
+    else { r.status='none'; r.note = r.cands.length? 'IV ที่ตรงถูกจับคู่กับออเดอร์อื่นแล้ว' : 'ไม่พบ BP Reference No. นี้'; }
+  });
+
+  // our IVs in the report's date range that nobody claimed
+  const ods=st.pfRows.map(p=>p.orderDate).filter(Boolean);
+  const minD=ods.length? new Date(Math.min(...ods)-win*86400000):null, maxD=ods.length? new Date(Math.max(...ods)+win*86400000):null;
+  st.unmatched=ours.filter(o=>!used.has(o.uid)).filter(o=>{ if(!minD) return true; return o.dates.some(d=>d>=minD && d<=maxD); });
+  st.results=res;
+}
+
+/* ===================== Render ===================== */
+const STATUS={ ok:['b-ok','✓ ตรง'], manual:['b-ok','✓ เลือกเอง'], amt:['b-warn','ยอดไม่ตรง'], date:['b-warn','วันที่ห่าง'],
+  dup:['b-warn','ต้องเลือก IV'], none:['b-bad','ไม่พบ IV'], skip:['b-warn','ไม่ใช่ Completed'] };
+const FILTERS=[['all','ทั้งหมด'],['ok','ตรง'],['warn','ต้องตรวจ'],['none','ไม่พบ IV']];
+const group=s=> (s==='ok'||s==='manual')?'ok' : s==='none'?'none' : 'warn';
+
+function render(){
+  const cfg=PLATFORMS[pfId], R=st.results;
+  const ivTotal=r=>r.ivs.reduce((a,c)=>a+c.o.total,0);
+  const fees=p=>p.payFee+p.serviceFee;
+  const tot=k=>R.reduce((a,r)=>a+r.p[k],0);
+  const matched=R.filter(r=>group(r.status)==='ok').length;
+  const ivSum=R.reduce((a,r)=>a+ivTotal(r),0);
+  const diffSum=R.filter(r=>r.ivs.length).reduce((a,r)=>a+(ivTotal(r)-r.p[cfg.compareField]),0);
+  const warnN=R.filter(r=>group(r.status)==='warn').length, noneN=R.filter(r=>r.status==='none').length;
+
+  $('summary').innerHTML = [
+    ['ออเดอร์ในรายงาน', R.length, ''],
+    ['จับคู่ได้', `${matched}/${R.length}`, matched===R.length?'good':''],
+    ['ต้องตรวจ / ไม่พบ IV', `${warnN} / ${noneN}`, (warnN||noneN)?'bad':'good'],
+    ['ยอดลูกค้าจ่าย (แพลตฟอร์ม)', fmt(tot('customerPaid')), ''],
+    ['ยอด IV ที่จับคู่ได้', fmt(ivSum), Math.abs(diffSum)>0.005?'warn':'good'],
+    ['ยอดเงินที่ได้รับจริง', fmt(tot('received')), 'good']
+  ].map(([k,v,c])=>`<div><div class="k">${k}</div><div class="v ${c}">${v}</div></div>`).join('');
+
+  $('filters').innerHTML = FILTERS.map(([k,l])=>{ const n=k==='all'?R.length:R.filter(r=>group(r.status)===k).length;
+    return `<button class="chip ${st.filter===k?'active':''}" data-f="${k}">${l} (${n})</button>`; }).join('');
+  $('filters').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{ st.filter=b.dataset.f; render(); });
+
+  const rows=R.filter(r=>st.filter==='all'||group(r.status)===st.filter);
+  const orderHtml=o=> o.length>4 ? `${esc(o.slice(0,-4))}<b>${esc(o.slice(-4))}</b>` : `<b>${esc(o)}</b>`;
+  const body=rows.map(r=>{
+    const p=r.p, it=ivTotal(r), diff=r.ivs.length? it-p[cfg.compareField] : null;
+    const [bc,bl]=STATUS[r.status];
+    let ivCell;
+    if(r.ivs.length){
+      ivCell=r.ivs.map(c=>`<div class="iv">${esc(c.o.iv)}</div><div class="ivsub">${fmtD(c.d)}${c.o.so?' · '+esc(c.o.so):''}${c.o.branch?' · '+esc(c.o.branch):''}</div>`).join('');
+      if(r.status!=='ok' || st.manual[p.order]) ivCell+=pickSelect(r);
+    }else if(r.status==='dup'){ ivCell=pickSelect(r); }
+    else ivCell='<span class="ivsub">-</span>';
+    const notes=[r.note, r.cancelNote.length? `IV ที่ถูก Cancel ด้วยเลขนี้: ${r.cancelNote.map(esc).join(', ')}` : ''].filter(Boolean);
+    return `<tr class="st-${r.status}">
+      <td><div class="order">${orderHtml(p.order)}</div><div class="ivsub">สั่ง ${fmtD(p.orderDate)}</div></td>
+      <td>${ivCell}</td>
+      <td class="num">${r.ivs.length?fmt(it):'-'}</td>
+      <td class="num">${fmt(p.gross)}</td>
+      <td class="num">${p.coupon? '<span class="neg">-'+fmt(p.coupon)+'</span>' : fmt(0)}</td>
+      <td class="num">${fmt(p.customerPaid)}</td>
+      <td class="num">${fmt(p.platformPaid)}</td>
+      <td class="num">${fmees(fees(p))}</td>
+      <td class="num">${fmees(p.vat)}</td>
+      <td class="num">${fmees(p.wht)}</td>
+      <td class="num"><b>${fmt(p.received)}</b></td>
+      <td class="num ${diff!==null&&Math.abs(diff)>num($('optTol').value)?'diff-bad':''}">${diff===null?'-':fmt(diff)}</td>
+      <td><span class="badge ${bc}">${bl}</span>${notes.map(n=>`<div class="note">${n}</div>`).join('')}</td>
+    </tr>`;
+  }).join('');
+  const sum=k=>rows.reduce((a,r)=>a+r.p[k],0);
+  const rowsIv=rows.reduce((a,r)=>a+ivTotal(r),0);
+  const rowsDiff=rows.filter(r=>r.ivs.length).reduce((a,r)=>a+(ivTotal(r)-r.p[cfg.compareField]),0);
+  $('tblMain').innerHTML = `<thead><tr>
+      <th>หมายเลขคำสั่งซื้อ</th><th class="grp-ours">IV ฝั่งเรา</th><th class="num grp-ours">ยอด IV</th>
+      <th class="num">ราคาขายรวม</th><th class="num">ส่วนลดคูปอง</th><th class="num">ลูกค้าจ่าย (สุทธิ)</th><th class="num">แพลตฟอร์มจ่ายคืน</th>
+      <th class="num">ค่าธรรมเนียม</th><th class="num">VAT</th><th class="num">หัก ณ ที่จ่าย</th><th class="num">ยอดเงินที่ได้รับ</th>
+      <th class="num">ส่วนต่าง IV−ลูกค้าจ่าย</th><th>สถานะ</th></tr></thead>
+    <tbody>${body || `<tr><td colspan="13" class="empty">ไม่มีรายการในตัวกรองนี้</td></tr>`}</tbody>
+    <tfoot><tr><td>รวม ${rows.length} ออเดอร์</td><td></td><td class="num">${fmt(rowsIv)}</td>
+      <td class="num">${fmt(sum('gross'))}</td><td class="num">${fmt(sum('coupon'))}</td><td class="num">${fmt(sum('customerPaid'))}</td>
+      <td class="num">${fmt(sum('platformPaid'))}</td><td class="num">${fmt(rows.reduce((a,r)=>a+fees(r.p),0))}</td>
+      <td class="num">${fmt(sum('vat'))}</td><td class="num">${fmt(sum('wht'))}</td><td class="num">${fmt(sum('received'))}</td>
+      <td class="num">${fmt(rowsDiff)}</td><td></td></tr></tfoot>`;
+  $('tblMain').querySelectorAll('select[data-order]').forEach(s=>s.onchange=()=>{
+    if(s.value) st.manual[s.dataset.order]=s.value; else delete st.manual[s.dataset.order];
+    reconcile(); render();
+  });
+
+  // settlement summary
+  const sMap={};
+  R.forEach(r=>{ const k=r.p.settlement||'-'; (sMap[k]=sMap[k]||{date:r.p.payDate, n:0, ok:0, gross:0, coupon:0, cust:0, plat:0, fee:0, vat:0, wht:0, rec:0, iv:0});
+    const s=sMap[k]; s.n++; if(group(r.status)==='ok') s.ok++; s.gross+=r.p.gross; s.coupon+=r.p.coupon; s.cust+=r.p.customerPaid; s.plat+=r.p.platformPaid;
+    s.fee+=fees(r.p); s.vat+=r.p.vat; s.wht+=r.p.wht; s.rec+=r.p.received; s.iv+=ivTotal(r); });
+  $('tblSettle').innerHTML = `<thead><tr><th>Settlement ID</th><th>วันที่ได้รับเงิน</th><th class="num">ออเดอร์</th><th class="num">จับคู่ได้</th>
+      <th class="num">ราคาขายรวม</th><th class="num">ส่วนลดคูปอง</th><th class="num">ลูกค้าจ่าย</th><th class="num">แพลตฟอร์มจ่ายคืน</th>
+      <th class="num">ค่าธรรมเนียม</th><th class="num">VAT</th><th class="num">หัก ณ ที่จ่าย</th><th class="num">ยอดเงินที่ได้รับ</th><th class="num">ยอด IV</th></tr></thead><tbody>`
+    + Object.entries(sMap).map(([k,s])=>`<tr><td class="order">${esc(k)}</td><td>${esc(s.date)}</td><td class="num">${s.n}</td><td class="num">${s.ok}</td>
+      <td class="num">${fmt(s.gross)}</td><td class="num">${fmt(s.coupon)}</td><td class="num">${fmt(s.cust)}</td><td class="num">${fmt(s.plat)}</td>
+      <td class="num">${fmt(s.fee)}</td><td class="num">${fmt(s.vat)}</td><td class="num">${fmt(s.wht)}</td><td class="num"><b>${fmt(s.rec)}</b></td><td class="num">${fmt(s.iv)}</td></tr>`).join('')
+    + `</tbody>`;
+
+  $('tblUnmatched').innerHTML = st.unmatched.length
+    ? `<thead><tr><th>IV No.</th><th>SO No.</th><th>BP Reference No.</th><th>Posting Date</th><th>สาขา</th><th>ช่องทาง / ลูกค้า</th><th class="num">Document Total</th></tr></thead><tbody>`
+      + st.unmatched.map(o=>`<tr><td class="iv">${esc(o.iv)}</td><td>${esc(o.so)}</td><td>${esc(o.bp)||'<span class="neg">ไม่ได้ใส่</span>'}</td><td>${esc(o.postRaw)}</td>
+        <td>${esc(o.branch)}</td><td>${esc(o.channel||o.cust)}</td><td class="num">${fmt(o.total)}</td></tr>`).join('')
+      + `</tbody><tfoot><tr><td colspan="6">รวม ${st.unmatched.length} IV</td><td class="num">${fmt(st.unmatched.reduce((a,o)=>a+o.total,0))}</td></tr></tfoot>`
+    : `<tbody><tr><td class="empty">ไม่มี · IV ทุกใบในช่วงวันที่นี้ถูกจับคู่แล้ว</td></tr></tbody>`;
+
+  $('result').classList.remove('hidden'); $('btnExport').classList.remove('hidden'); $('btnSave').classList.remove('hidden');
+}
+function fmees(v){ return v? '<span class="neg">-'+fmt(v)+'</span>' : fmt(0); }
+function pickSelect(r){
+  const opts=(r.choices||r.cands).map(c=>`<option value="${c.o.uid}" ${st.manual[r.p.order]===c.o.uid?'selected':''}>${esc(c.o.iv)} · ${fmt(c.o.total)} · ${fmtD(c.d)}</option>`).join('');
+  return `<select data-order="${esc(r.p.order)}" style="margin-top:4px; font-size:12px; max-width:230px;"><option value="">— เลือก IV —</option>${opts}</select>`;
+}
+
+/* ===================== Export ===================== */
+function exportXlsx(){
+  const cfg=PLATFORMS[pfId];
+  const rows=st.results.map(r=>{ const it=r.ivs.reduce((a,c)=>a+c.o.total,0);
+    return { 'Settlement ID':r.p.settlement, 'วันที่ได้รับเงิน':r.p.payDate, 'หมายเลขคำสั่งซื้อ':r.p.order, 'เลข 4 ตัวท้าย':r.p.key, 'วันที่สั่งซื้อ':fmtD(r.p.orderDate),
+      'IV No.':r.ivs.map(c=>c.o.iv).join(', '), 'SO No.':r.ivs.map(c=>c.o.so).join(', '), 'Posting Date':r.ivs.map(c=>fmtD(c.d)).join(', '), 'ยอด IV':r.ivs.length?it:'',
+      'ราคาขายรวม':r.p.gross, 'ส่วนลดคูปอง':r.p.coupon, 'ลูกค้าจ่าย (สุทธิ)':r.p.customerPaid, 'แพลตฟอร์มจ่ายคืน':r.p.platformPaid,
+      'ค่าธรรมเนียมชำระเงิน':r.p.payFee, 'ค่าธรรมเนียมบริการ':r.p.serviceFee, 'VAT':r.p.vat, 'หัก ณ ที่จ่าย':r.p.wht, 'ยอดเงินที่ได้รับ':r.p.received,
+      'ส่วนต่าง IV−ลูกค้าจ่าย':r.ivs.length? +(it-r.p[cfg.compareField]).toFixed(2):'', 'สถานะ':STATUS[r.status][1], 'หมายเหตุ':[r.note, r.cancelNote.length?'Canceled: '+r.cancelNote.join(', '):''].filter(Boolean).join(' | ') }; });
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'ผลกระทบยอด');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(st.unmatched.map(o=>({'IV No.':o.iv,'SO No.':o.so,'BP Reference No.':o.bp,'Posting Date':o.postRaw,'สาขา':o.branch,'ช่องทาง':o.channel||o.cust,'Document Total':o.total}))), 'IV ที่ไม่พบในรายงาน');
+  const stamp=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `กระทบยอด_${cfg.name.replace(/\s+/g,'')}_${stamp}.xlsx`);
+}
+
+/* ===================== Wiring ===================== */
+function renderPlatforms(){
+  $('platforms').innerHTML=Object.entries(PLATFORMS).map(([id,c])=>`<button class="pf ${id===pfId?'active':''}" data-id="${id}" ${c.ready?'':'disabled'}>${c.name}${c.ready?'':'<small>เร็ว ๆ นี้</small>'}</button>`).join('');
+  $('platforms').querySelectorAll('.pf').forEach(b=>b.onclick=()=>{ pfId=b.dataset.id; renderPlatforms(); });
+  $('pfTitle').textContent='1. รายงานจาก '+PLATFORMS[pfId].name; $('pfSub').textContent=PLATFORMS[pfId].sub; $('optChannelName').textContent=PLATFORMS[pfId].name;
+}
+function setStatus(id,msg,cls){ const el=$(id); el.textContent=msg; el.className='status-line '+(cls||''); }
+
+async function loadPlatform(table){
+  try{ st.pfRows=parsePlatform(table); st.manual={};
+    const dates=st.pfRows.map(p=>p.orderDate).filter(Boolean);
+    setStatus('pfStatus',`อ่านได้ ${st.pfRows.length} ออเดอร์ · วันสั่งซื้อ ${fmtD(new Date(Math.min(...dates)))} – ${fmtD(new Date(Math.max(...dates)))} · ยอดเงินที่ได้รับรวม ${fmt(st.pfRows.reduce((a,p)=>a+p.received,0))} บาท`,'ok');
+  }catch(e){ st.pfRows=[]; setStatus('pfStatus',e.message,'err'); }
+}
+function loadOurs(table, src){
+  try{ st.ourRows=parseOurs(table);
+    const noBp=st.ourRows.filter(o=>!o.key && !o.canceled).length;
+    setStatus('ourStatus',`อ่านได้ ${st.ourRows.length} IV จาก${src}${noBp?` · ⚠ ไม่มี BP Reference No. ${noBp} ใบ`:''}`, noBp?'':'ok');
+  }catch(e){ st.ourRows=[]; setStatus('ourStatus',e.message,'err'); }
+}
+
+$('pfFile').onchange=async e=>{ const f=e.target.files[0]; if(f) await loadPlatform(await readTable(f)); };
+$('pfPaste').addEventListener('input',()=>{ const t=$('pfPaste').value; if(t.trim()) loadPlatform(pasteToTable(t)); });
+$('ourFile').onchange=async e=>{ const f=e.target.files[0]; if(f) loadOurs(await readTable(f),'ไฟล์'); };
+$('ourPaste').addEventListener('input',()=>{ const t=$('ourPaste').value; if(t.trim()) loadOurs(pasteToTable(t),'ข้อมูลที่วาง'); });
+
+function apiUrl(){ try{ return localStorage.getItem('delish_recon_api_v2')||DEFAULT_API; }catch(e){ return DEFAULT_API; } }
+$('apiUrl').value=apiUrl();
+$('btnSaveUrl').onclick=()=>{ try{ localStorage.setItem('delish_recon_api_v2',$('apiUrl').value.trim()); }catch(e){} setStatus('ourStatus','บันทึก URL แล้ว','ok'); };
+$('btnFetch').onclick=async()=>{
+  if(!st.pfRows.length){ setStatus('ourStatus','กรุณาใส่รายงานจากแพลตฟอร์มก่อน ระบบจะดึงข้อมูลตามช่วงวันที่ของออเดอร์','err'); return; }
+  const win=num($('optDays').value), ds=st.pfRows.map(p=>p.orderDate).filter(Boolean);
+  const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const from=iso(new Date(Math.min(...ds)-win*86400000)), to=iso(new Date(Math.max(...ds)+win*86400000));
+  setStatus('ourStatus','กำลังดึงข้อมูลจาก Google Sheet…');
+  try{
+    const res=await fetch(`${apiUrl()}?action=sales&from=${from}&to=${to}`); const j=JSON.parse(await res.text());
+    if(j.status!=='ok'||!Array.isArray(j.rows)) throw new Error(j.message||'รูปแบบข้อมูลไม่ถูกต้อง');
+    loadOurs([j.headers, ...j.rows],'Google Sheet ('+from+' ถึง '+to+')');
+    if(j.tabsWithoutBpRef && j.tabsWithoutBpRef.length){ setStatus('ourStatus', $('ourStatus').textContent + ' · ⚠ แท็บที่ยังไม่มีคอลัมน์ BP Reference No.: '+j.tabsWithoutBpRef.join(', '), 'err'); }
+  }catch(e){ setStatus('ourStatus','ดึงข้อมูลไม่สำเร็จ ('+e.message+') · ใช้วิธีวางข้อมูลจาก Sheet แทนได้','err'); }
+};
+$('btnRun').onclick=()=>{
+  if(!st.pfRows.length) return setStatus('runStatus','ยังไม่มีรายงานจากแพลตฟอร์ม','err');
+  if(!st.ourRows.length) return setStatus('runStatus','ยังไม่มีข้อมูลยอดขายฝั่งเรา','err');
+  setStatus('runStatus',''); reconcile(); render(); $('summary').scrollIntoView({behavior:'smooth',block:'start'});
+};
+['optTol','optDays','optChannel','optCompleted'].forEach(id=>$(id).addEventListener('change',()=>{ if(st.results.length){ reconcile(); render(); } }));
+$('btnExport').onclick=exportXlsx;
+$('btnSave').onclick=async()=>{
+  const cfg=PLATFORMS[pfId], b=$('btnSave'); b.disabled=true; setStatus('runStatus','กำลังบันทึกผลลง Google Sheet…');
+  const rows=st.results.map(r=>{ const it=r.ivs.reduce((a,c)=>a+c.o.total,0);
+    return [cfg.name, r.p.settlement, r.p.payDate, r.p.order, r.p.key, fmtD(r.p.orderDate), r.ivs.map(c=>c.o.iv).join(', '), r.ivs.map(c=>c.o.so).join(', '),
+      r.ivs.length?it:'', r.p.gross, r.p.coupon, r.p.customerPaid, r.p.platformPaid, r.p.payFee+r.p.serviceFee, r.p.vat, r.p.wht, r.p.received,
+      r.ivs.length? +(it-r.p[cfg.compareField]).toFixed(2):'', STATUS[r.status][1], [r.note, r.cancelNote.length?'Canceled: '+r.cancelNote.join(', '):''].filter(Boolean).join(' | ')]; });
+  try{
+    const res=await fetch(apiUrl(),{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'save',rows})});
+    const j=JSON.parse(await res.text()); if(j.status!=='ok') throw new Error(j.message||'บันทึกไม่สำเร็จ');
+    setStatus('runStatus',`บันทึกแล้ว ${j.saved} ออเดอร์ (ถ้า Settlement เดิมเคยบันทึก จะแทนที่ของเก่า)`,'ok');
+  }catch(e){ setStatus('runStatus','บันทึกไม่สำเร็จ ('+e.message+') · ใช้ปุ่มดาวน์โหลด Excel แทนได้','err'); }
+  b.disabled=false;
+};
+renderPlatforms();
+</script>
+</body>
+</html>
